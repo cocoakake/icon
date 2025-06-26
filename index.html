@@ -98,219 +98,194 @@
 
   <script>
     const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d");
 
-    const sunglassImg = new Image();
-    sunglassImg.src = "pixel-sunglasses-19.png";
+const sunglassImg = new Image();
+sunglassImg.src = "pixel-sunglasses-19.png";
 
-    const linesImg = new Image();
-    linesImg.src = "concentration-lines.png";
+const linesImg = new Image();
+linesImg.src = "concentration-lines.png";
 
-    const accessories = {
-      hat: {
-        img: new Image(),
-        src: "Aluminum_foil_hat.png",
-        x: 180, y: 100, w: 120, h: 80, opacity: 1, visible: true, rotation: 0
-      }
-    };
+const accessories = {
+  hat: {
+    img: new Image(),
+    src: "Aluminum_foil_hat.png",
+    x: 180, y: 100, w: 120, h: 80, opacity: 1, visible: true, rotation: 0
+  }
+};
 
-    for (let key in accessories) {
-      accessories[key].img.src = accessories[key].src;
-      accessories[key].img.onload = draw;
-    }
+for (let key in accessories) {
+  accessories[key].img.src = accessories[key].src;
+  accessories[key].img.onload = draw;
+}
 
-    ["hat"].forEach(name => {
-      ["x", "y", "w", "h", "opacity", "rotation"].forEach(attr => {
-        document.getElementById(`${name}-${attr}`).addEventListener("input", e => {
-          accessories[name][attr] = parseFloat(e.target.value);
-          draw();
-        });
-      });
-      document.getElementById(`acc-${name}`).addEventListener("change", e => {
-        accessories[name].visible = e.target.checked;
-        draw();
-      });
-    });
-
-    let userImg = null;
-    let imgOffset = { x: 0, y: 0 };
-    let dragging = false;
-    let dragStart = { x: 0, y: 0 };
-    let dragTarget = null; // "image", "sunglass", "hat", or null
-
-    const params = {
-      sw: 100,
-      sh: 40,
-      sx: 180,
-      sy: 200,
-      rotation: 0,
-      opacity: 1,
-      showLines: true,
-      visible: true // サングラス表示状態
-    };
-
-    document.getElementById("upload").addEventListener("change", e => {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        userImg = new Image();
-        userImg.onload = () => {
-          imgOffset = { x: 0, y: 0 };
-          draw();
-        };
-        userImg.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    function drawRotatedImage(img, x, y, w, h, rotation, opacity = 1) {
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      ctx.translate(x + w / 2, y + h / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(img, -w / 2, -h / 2, w, h);
-      ctx.restore();
-      ctx.globalAlpha = 1;
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (userImg) {
-        const minSize = Math.min(userImg.width, userImg.height);
-        const sx = (userImg.width - minSize) / 2 - imgOffset.x;
-        const sy = (userImg.height - minSize) / 2 - imgOffset.y;
-        ctx.drawImage(userImg, sx, sy, minSize, minSize, 0, 0, 512, 512);
-      }
-
-      if (params.showLines && linesImg.complete) {
-        ctx.drawImage(linesImg, 0, 0, 512, 512);
-      }
-
-      if (params.visible && sunglassImg.complete) {
-        drawRotatedImage(sunglassImg, params.sx, params.sy, params.sw, params.sh, params.rotation, params.opacity);
-      }
-
-      for (let key in accessories) {
-        const acc = accessories[key];
-        if (acc.visible && acc.img.complete) {
-          drawRotatedImage(acc.img, acc.x, acc.y, acc.w, acc.h, acc.rotation, acc.opacity);
-        }
-      }
-    }
-
-    ["sunglass-w", "sunglass-h", "sunglass-x", "sunglass-y", "sunglass-opacity", "sunglass-rotation"].forEach(id => {
-      document.getElementById(id).addEventListener("input", e => {
-        const key = id.split("-")[1];
-        params[key === "w" ? "sw" : key === "h" ? "sh" : key] = parseFloat(e.target.value);
-        draw();
-      });
-    });
-
-    document.getElementById("acc-sunglass").addEventListener("change", e => {
-      params.visible = e.target.checked;
+["hat"].forEach(name => {
+  ["x", "y", "w", "h", "opacity", "rotation"].forEach(attr => {
+    document.getElementById(`${name}-${attr}`).addEventListener("input", e => {
+      accessories[name][attr] = parseFloat(e.target.value);
       draw();
     });
+  });
+  document.getElementById(`acc-${name}`).addEventListener("change", e => {
+    accessories[name].visible = e.target.checked;
+    draw();
+  });
+});
 
-    document.getElementById("show-lines").addEventListener("change", e => {
-      params.showLines = e.target.checked;
+let userImg = null;
+let imgOffset = { x: 0, y: 0 };
+let dragging = false;
+let dragStart = { x: 0, y: 0 };
+let dragTarget = null; // "image", "sunglass", "hat", or null
+
+const params = {
+  sw: 100,
+  sh: 40,
+  sx: 180,
+  sy: 200,
+  rotation: 0,
+  opacity: 1,
+  showLines: true,
+  visible: true // サングラス表示状態
+};
+
+document.getElementById("upload").addEventListener("change", e => {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    userImg = new Image();
+    userImg.onload = () => {
+      imgOffset = { x: 0, y: 0 };
       draw();
-    });
-
-    document.getElementById("download").addEventListener("click", () => {
-      const link = document.createElement("a");
-      link.download = "icon.png";
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    });
-
-    // ドラッグ移動
-
-    const getPos = e => {
-      const rect = canvas.getBoundingClientRect();
-      if (e.touches) {
-        return {
-          x: e.touches[0].clientX - rect.left,
-          y: e.touches[0].clientY - rect.top
-        };
-      } else {
-        return {
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top
-        };
-      }
     };
+    userImg.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
 
-    // 回転した矩形内に点があるか判定する関数
-    function isPointInRotatedRect(px, py, rx, ry, rw, rh, rotation) {
-      const cx = rx + rw / 2;
-      const cy = ry + rh / 2;
-      const rad = (-rotation * Math.PI) / 180;
-      const dx = px - cx;
-      const dy = py - cy;
-      const x = dx * Math.cos(rad) - dy * Math.sin(rad) + rw / 2;
-      const y = dx * Math.sin(rad) + dy * Math.cos(rad) + rh / 2;
-      return 0 <= x && x <= rw && 0 <= y && y <= rh;
+function drawRotatedImage(img, x, y, w, h, rotation, opacity = 1) {
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate((rotation * Math.PI) / 180);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (userImg) {
+    const minSize = Math.min(userImg.width, userImg.height);
+    const sx = (userImg.width - minSize) / 2 - imgOffset.x;
+    const sy = (userImg.height - minSize) / 2 - imgOffset.y;
+    ctx.drawImage(userImg, sx, sy, minSize, minSize, 0, 0, 512, 512);
+  }
+
+  if (params.showLines && linesImg.complete) {
+    ctx.drawImage(linesImg, 0, 0, 512, 512);
+  }
+
+  if (params.visible && sunglassImg.complete) {
+    drawRotatedImage(sunglassImg, params.sx, params.sy, params.sw, params.sh, params.rotation, params.opacity);
+  }
+
+  for (let key in accessories) {
+    const acc = accessories[key];
+    if (acc.visible && acc.img.complete) {
+      drawRotatedImage(acc.img, acc.x, acc.y, acc.w, acc.h, acc.rotation, acc.opacity);
     }
+  }
+}
 
-    function startDrag(e) {
-      const pos = getPos(e);
-      if (params.visible && isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
-        dragTarget = "sunglass";
-      } else if (userImg && pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
-        dragTarget = "image";
-      } else if (accessories.hat.visible && isPointInRotatedRect(pos.x, pos.y, accessories.hat.x, accessories.hat.y, accessories.hat.w, accessories.hat.h, accessories.hat.rotation)) {
-        dragTarget = "hat";
-      } else {
-        dragTarget = null;
-      }
-      dragging = dragTarget !== null;
-      dragStart = pos;
-    }
+// 座標取得（キャンバス相対）
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  if (e.touches) {
+    return {
+      x: e.touches[0].clientX - rect.left,
+      y: e.touches[0].clientY - rect.top
+    };
+  } else {
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+}
 
-    function onDrag(e) {
-      if (!dragging) return;
-      const pos = getPos(e);
-      const dx = pos.x - dragStart.x;
-      const dy = pos.y - dragStart.y;
+// 回転矩形内判定
+function isPointInRotatedRect(px, py, rx, ry, rw, rh, rotation) {
+  const cx = rx + rw / 2;
+  const cy = ry + rh / 2;
+  const rad = (-rotation * Math.PI) / 180;
+  const dx = px - cx;
+  const dy = py - cy;
+  const x = dx * Math.cos(rad) - dy * Math.sin(rad) + rw / 2;
+  const y = dx * Math.sin(rad) + dy * Math.cos(rad) + rh / 2;
+  return 0 <= x && x <= rw && 0 <= y && y <= rh;
+}
 
-      if (dragTarget === "image" && userImg) {
-        imgOffset.x -= dx * (userImg.width / canvas.width);
-        imgOffset.y -= dy * (userImg.height / canvas.height);
-      } else if (dragTarget === "sunglass") {
-        params.sx += dx;
-        params.sy += dy;
+function startDrag(e) {
+  const pos = getPos(e);
+  if (params.visible && isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
+    dragTarget = "sunglass";
+  } else if (userImg && pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
+    dragTarget = "image";
+  } else if (accessories.hat.visible && isPointInRotatedRect(pos.x, pos.y, accessories.hat.x, accessories.hat.y, accessories.hat.w, accessories.hat.h, accessories.hat.rotation)) {
+    dragTarget = "hat";
+  } else {
+    dragTarget = null;
+  }
+  dragging = dragTarget !== null;
+  dragStart = pos;
+}
 
-        // スライダーの値も更新
-        document.getElementById("sunglass-x").value = params.sx;
-        document.getElementById("sunglass-y").value = params.sy;
-      } else if (dragTarget === "hat") {
-        accessories.hat.x += dx;
-        accessories.hat.y += dy;
+function onDrag(e) {
+  if (!dragging) return;
+  const pos = getPos(e);
+  const dx = pos.x - dragStart.x;
+  const dy = pos.y - dragStart.y;
 
-        // スライダーの値も更新
-        document.getElementById("hat-x").value = accessories.hat.x;
-        document.getElementById("hat-y").value = accessories.hat.y;
-      }
+  if (dragTarget === "image" && userImg) {
+    imgOffset.x -= dx * (userImg.width / canvas.width);
+    imgOffset.y -= dy * (userImg.height / canvas.height);
+  } else if (dragTarget === "sunglass") {
+    params.sx += dx;
+    params.sy += dy;
 
-      dragStart = pos;
-      draw();
-    }
+    // スライダー連動
+    document.getElementById("sunglass-x").value = params.sx;
+    document.getElementById("sunglass-y").value = params.sy;
+  } else if (dragTarget === "hat") {
+    accessories.hat.x += dx;
+    accessories.hat.y += dy;
 
-    function endDrag() {
-      dragging = false;
-      dragTarget = null;
-    }
+    // スライダー連動
+    document.getElementById("hat-x").value = accessories.hat.x;
+    document.getElementById("hat-y").value = accessories.hat.y;
+  }
 
-    canvas.addEventListener("mousedown", startDrag);
-    canvas.addEventListener("touchstart", startDrag);
-    canvas.addEventListener("mousemove", onDrag);
-    canvas.addEventListener("touchmove", onDrag);
-    canvas.addEventListener("mouseup", endDrag);
-    canvas.addEventListener("mouseleave", endDrag);
-    canvas.addEventListener("touchend", endDrag);
+  dragStart = pos;
+  draw();
+}
 
-    [sunglassImg, linesImg].forEach(img => img.onload = draw);
-  </script>
+function endDrag() {
+  dragging = false;
+  dragTarget = null;
+}
+
+canvas.addEventListener("mousedown", startDrag);
+canvas.addEventListener("touchstart", startDrag);
+canvas.addEventListener("mousemove", onDrag);
+canvas.addEventListener("touchmove", onDrag);
+canvas.addEventListener("mouseup", endDrag);
+canvas.addEventListener("mouseleave", endDrag);
+canvas.addEventListener("touchend", endDrag);
+
+[sunglassImg, linesImg].forEach(img => img.onload = draw);
+
+ </script>
 </body>
 </html>
