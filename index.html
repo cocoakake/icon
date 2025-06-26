@@ -12,41 +12,37 @@
       padding: 0;
       text-align: center;
     }
-
     h1 {
       margin: 10px;
     }
-
     canvas {
       border: 1px solid #ccc;
       width: 100%;
       max-width: 360px;
       background: #fff;
       touch-action: none;
+      user-select: none;
     }
-
     .controls {
       padding: 10px;
+      max-width: 360px;
+      margin: auto;
     }
-
     .layer-group {
       margin: 10px 0;
       background: #fff;
       padding: 10px;
       border-radius: 8px;
+      text-align: left;
     }
-
     input[type="range"] {
       width: 100%;
     }
-
     label {
       display: block;
-      text-align: left;
       font-size: 0.9em;
       margin-top: 5px;
     }
-
     button {
       margin-top: 10px;
       padding: 10px 20px;
@@ -55,10 +51,13 @@
       color: white;
       border: none;
       border-radius: 5px;
+      cursor: pointer;
     }
-
     @media (min-width: 600px) {
       canvas {
+        max-width: 512px;
+      }
+      .controls {
         max-width: 512px;
       }
     }
@@ -75,8 +74,8 @@
       <label><input type="checkbox" id="acc-sunglass" checked> 表示する</label>
       <label>横サイズ: <input type="range" id="sunglass-w" min="10" max="300" value="100"></label>
       <label>縦サイズ: <input type="range" id="sunglass-h" min="10" max="200" value="40"></label>
-      <label>位置X: <input type="range" id="sunglass-x" min="0" max="512" value="180"></label>
-      <label>位置Y: <input type="range" id="sunglass-y" min="0" max="512" value="200"></label>
+      <label>位置X: <input type="range" id="sunglass-x" min="0" max="412" value="180"></label>
+      <label>位置Y: <input type="range" id="sunglass-y" min="0" max="472" value="200"></label>
       <label>回転角度（°）: <input type="range" id="sunglass-rotation" min="-180" max="180" value="0"></label>
       <label>透明度: <input type="range" id="sunglass-opacity" min="0" max="1" step="0.01" value="1"></label>
     </div>
@@ -98,194 +97,207 @@
 
   <script>
     const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d");
 
-const sunglassImg = new Image();
-sunglassImg.src = "pixel-sunglasses-19.png";
+    // 画像読み込み
+    const sunglassImg = new Image();
+    sunglassImg.src = "pixel-sunglasses-19.png";
 
-const linesImg = new Image();
-linesImg.src = "concentration-lines.png";
+    const linesImg = new Image();
+    linesImg.src = "concentration-lines.png";
 
-const accessories = {
-  hat: {
-    img: new Image(),
-    src: "Aluminum_foil_hat.png",
-    x: 180, y: 100, w: 120, h: 80, opacity: 1, visible: true, rotation: 0
-  }
-};
+    const accessories = {
+      hat: {
+        img: new Image(),
+        src: "Aluminum_foil_hat.png",
+        x: 180, y: 100, w: 120, h: 80,
+        opacity: 1, visible: true, rotation: 0
+      }
+    };
+    accessories.hat.img.src = accessories.hat.src;
+    accessories.hat.img.onload = () => draw();
 
-for (let key in accessories) {
-  accessories[key].img.src = accessories[key].src;
-  accessories[key].img.onload = draw;
-}
+    // 状態保持
+    let userImg = null;
+    let imgOffset = { x: 0, y: 0 };
+    let dragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let dragTarget = null; // "image" or "sunglass" or null
 
-["hat"].forEach(name => {
-  ["x", "y", "w", "h", "opacity", "rotation"].forEach(attr => {
-    document.getElementById(`${name}-${attr}`).addEventListener("input", e => {
-      accessories[name][attr] = parseFloat(e.target.value);
+    // パラメータ
+    const params = {
+      sw: 100,
+      sh: 40,
+      sx: 180,
+      sy: 200,
+      rotation: 0,
+      opacity: 1,
+      visible: true,
+      showLines: true
+    };
+
+    // ファイルアップロード
+    document.getElementById("upload").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        userImg = new Image();
+        userImg.onload = () => {
+          imgOffset = { x: 0, y: 0 };
+          draw();
+        };
+        userImg.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 回転描画関数
+    function drawRotatedImage(img, x, y, w, h, rotation, opacity = 1) {
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.translate(x + w / 2, y + h / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    // 描画処理
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // ユーザー画像を中央トリミングして表示
+      if (userImg) {
+        const minSize = Math.min(userImg.width, userImg.height);
+        const sx = (userImg.width - minSize) / 2 - imgOffset.x;
+        const sy = (userImg.height - minSize) / 2 - imgOffset.y;
+        ctx.drawImage(userImg, sx, sy, minSize, minSize, 0, 0, 512, 512);
+      }
+
+      // 集中線表示
+      if (params.showLines && linesImg.complete) {
+        ctx.drawImage(linesImg, 0, 0, 512, 512);
+      }
+
+      // サングラス表示
+      if (params.visible && sunglassImg.complete) {
+        drawRotatedImage(sunglassImg, params.sx, params.sy, params.sw, params.sh, params.rotation, params.opacity);
+      }
+
+      // 帽子表示
+      const hat = accessories.hat;
+      if (hat.visible && hat.img.complete) {
+        drawRotatedImage(hat.img, hat.x, hat.y, hat.w, hat.h, hat.rotation, hat.opacity);
+      }
+    }
+
+    // スライダーイベント設定 (サングラス)
+    ["w", "h", "x", "y", "opacity", "rotation"].forEach(key => {
+      document.getElementById(`sunglass-${key}`).addEventListener("input", e => {
+        if (key === "w") params.sw = parseFloat(e.target.value);
+        else if (key === "h") params.sh = parseFloat(e.target.value);
+        else if (key === "x") params.sx = parseFloat(e.target.value);
+        else if (key === "y") params.sy = parseFloat(e.target.value);
+        else if (key === "opacity") params.opacity = parseFloat(e.target.value);
+        else if (key === "rotation") params.rotation = parseFloat(e.target.value);
+        draw();
+      });
+    });
+
+    // サングラス表示切替チェックボックス
+    document.getElementById("acc-sunglass").addEventListener("change", e => {
+      params.visible = e.target.checked;
       draw();
     });
-  });
-  document.getElementById(`acc-${name}`).addEventListener("change", e => {
-    accessories[name].visible = e.target.checked;
-    draw();
-  });
-});
 
-let userImg = null;
-let imgOffset = { x: 0, y: 0 };
-let dragging = false;
-let dragStart = { x: 0, y: 0 };
-let dragTarget = null; // "image", "sunglass", "hat", or null
+    // 帽子スライダーイベント設定
+    ["x", "y", "w", "h", "opacity", "rotation"].forEach(key => {
+      document.getElementById(`hat-${key}`).addEventListener("input", e => {
+        accessories.hat[key] = parseFloat(e.target.value);
+        draw();
+      });
+    });
 
-const params = {
-  sw: 100,
-  sh: 40,
-  sx: 180,
-  sy: 200,
-  rotation: 0,
-  opacity: 1,
-  showLines: true,
-  visible: true // サングラス表示状態
-};
-
-document.getElementById("upload").addEventListener("change", e => {
-  const file = e.target.files[0];
-  const reader = new FileReader();
-  reader.onload = () => {
-    userImg = new Image();
-    userImg.onload = () => {
-      imgOffset = { x: 0, y: 0 };
+    // 帽子表示切替チェックボックス
+    document.getElementById("acc-hat").addEventListener("change", e => {
+      accessories.hat.visible = e.target.checked;
       draw();
+    });
+
+    // 集中線表示切替
+    document.getElementById("show-lines").addEventListener("change", e => {
+      params.showLines = e.target.checked;
+      draw();
+    });
+
+    // PNG保存ボタン
+    document.getElementById("download").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.download = "icon.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    });
+
+    // canvas上の座標取得
+    const getPos = e => {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      } else {
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
     };
-    userImg.src = reader.result;
-  };
-  reader.readAsDataURL(file);
-});
 
-function drawRotatedImage(img, x, y, w, h, rotation, opacity = 1) {
-  ctx.save();
-  ctx.globalAlpha = opacity;
-  ctx.translate(x + w / 2, y + h / 2);
-  ctx.rotate((rotation * Math.PI) / 180);
-  ctx.drawImage(img, -w / 2, -h / 2, w, h);
-  ctx.restore();
-  ctx.globalAlpha = 1;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  if (userImg) {
-    const minSize = Math.min(userImg.width, userImg.height);
-    const sx = (userImg.width - minSize) / 2 - imgOffset.x;
-    const sy = (userImg.height - minSize) / 2 - imgOffset.y;
-    ctx.drawImage(userImg, sx, sy, minSize, minSize, 0, 0, 512, 512);
-  }
-
-  if (params.showLines && linesImg.complete) {
-    ctx.drawImage(linesImg, 0, 0, 512, 512);
-  }
-
-  if (params.visible && sunglassImg.complete) {
-    drawRotatedImage(sunglassImg, params.sx, params.sy, params.sw, params.sh, params.rotation, params.opacity);
-  }
-
-  for (let key in accessories) {
-    const acc = accessories[key];
-    if (acc.visible && acc.img.complete) {
-      drawRotatedImage(acc.img, acc.x, acc.y, acc.w, acc.h, acc.rotation, acc.opacity);
+    // 回転矩形判定（座標が回転した矩形内かどうか）
+    function isPointInRotatedRect(px, py, rx, ry, rw, rh, rotation) {
+      const cx = rx + rw / 2;
+      const cy = ry + rh / 2;
+      const rad = (-rotation * Math.PI) / 180;
+      const dx = px - cx;
+      const dy = py - cy;
+      const x = dx * Math.cos(rad) - dy * Math.sin(rad) + rw / 2;
+      const y = dx * Math.sin(rad) + dy * Math.cos(rad) + rh / 2;
+      return 0 <= x && x <= rw && 0 <= y && y <= rh;
     }
-  }
-}
 
-// 座標取得（キャンバス相対）
-function getPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  if (e.touches) {
-    return {
-      x: e.touches[0].clientX - rect.left,
-      y: e.touches[0].clientY - rect.top
-    };
-  } else {
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-  }
-}
+    // ドラッグ開始判定
+    function startDrag(e) {
+      const pos = getPos(e);
+      if (params.visible && isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
+        dragTarget = "sunglass";
+      } else if (userImg) {
+        dragTarget = "image";
+      } else {
+        dragTarget = null;
+      }
+      dragging = dragTarget !== null;
+      dragStart = pos;
+    }
 
-// 回転矩形内判定
-function isPointInRotatedRect(px, py, rx, ry, rw, rh, rotation) {
-  const cx = rx + rw / 2;
-  const cy = ry + rh / 2;
-  const rad = (-rotation * Math.PI) / 180;
-  const dx = px - cx;
-  const dy = py - cy;
-  const x = dx * Math.cos(rad) - dy * Math.sin(rad) + rw / 2;
-  const y = dx * Math.sin(rad) + dy * Math.cos(rad) + rh / 2;
-  return 0 <= x && x <= rw && 0 <= y && y <= rh;
-}
+    // ドラッグ中処理
+    function onDrag(e) {
+      if (!dragging) return;
+      const pos = getPos(e);
+      const dx = pos.x - dragStart.x;
+      const dy = pos.y - dragStart.y;
 
-function startDrag(e) {
-  const pos = getPos(e);
-  if (params.visible && isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
-    dragTarget = "sunglass";
-  } else if (userImg && pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
-    dragTarget = "image";
-  } else if (accessories.hat.visible && isPointInRotatedRect(pos.x, pos.y, accessories.hat.x, accessories.hat.y, accessories.hat.w, accessories.hat.h, accessories.hat.rotation)) {
-    dragTarget = "hat";
-  } else {
-    dragTarget = null;
-  }
-  dragging = dragTarget !== null;
-  dragStart = pos;
-}
-
-function onDrag(e) {
-  if (!dragging) return;
-  const pos = getPos(e);
-  const dx = pos.x - dragStart.x;
-  const dy = pos.y - dragStart.y;
-
-  if (dragTarget === "image" && userImg) {
-    imgOffset.x -= dx * (userImg.width / canvas.width);
-    imgOffset.y -= dy * (userImg.height / canvas.height);
-  } else if (dragTarget === "sunglass") {
-    params.sx += dx;
-    params.sy += dy;
-
-    // スライダー連動
-    document.getElementById("sunglass-x").value = params.sx;
-    document.getElementById("sunglass-y").value = params.sy;
-  } else if (dragTarget === "hat") {
-    accessories.hat.x += dx;
-    accessories.hat.y += dy;
-
-    // スライダー連動
-    document.getElementById("hat-x").value = accessories.hat.x;
-    document.getElementById("hat-y").value = accessories.hat.y;
-  }
-
-  dragStart = pos;
-  draw();
-}
-
-function endDrag() {
-  dragging = false;
-  dragTarget = null;
-}
-
-canvas.addEventListener("mousedown", startDrag);
-canvas.addEventListener("touchstart", startDrag);
-canvas.addEventListener("mousemove", onDrag);
-canvas.addEventListener("touchmove", onDrag);
-canvas.addEventListener("mouseup", endDrag);
-canvas.addEventListener("mouseleave", endDrag);
-canvas.addEventListener("touchend", endDrag);
-
-[sunglassImg, linesImg].forEach(img => img.onload = draw);
-
- </script>
-</body>
-</html>
+      if (dragTarget === "image" && userImg) {
+        // ユーザー画像の移動は拡大縮小後のスケールを考慮
+        imgOffset.x -= dx * (userImg.width / canvas.width);
+        imgOffset.y -= dy * (userImg.height / canvas.height);
+      } else if (dragTarget === "sunglass") {
+        params.sx += dx;
+        params.sy += dy;
+        // スライダーの値はイベントループ回避で更新しないが、同期したいなら別途処理が必要
+        // ここでは描画のみ
+      }
+      dragStart = pos;
+      draw();
+   
