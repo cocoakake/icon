@@ -72,6 +72,7 @@
   <div class="controls">
     <div class="layer-group">
       <h3>👓 サングラス</h3>
+      <label><input type="checkbox" id="acc-sunglass" checked> 表示する</label>
       <label>横サイズ: <input type="range" id="sunglass-w" min="10" max="300" value="100"></label>
       <label>縦サイズ: <input type="range" id="sunglass-h" min="10" max="200" value="40"></label>
       <label>位置X: <input type="range" id="sunglass-x" min="0" max="512" value="180"></label>
@@ -135,7 +136,7 @@
     let imgOffset = { x: 0, y: 0 };
     let dragging = false;
     let dragStart = { x: 0, y: 0 };
-    let dragTarget = null; // "image", "sunglass", "hat" or null
+    let dragTarget = null; // "image", "sunglass", "hat", or null
 
     const params = {
       sw: 100,
@@ -144,7 +145,8 @@
       sy: 200,
       rotation: 0,
       opacity: 1,
-      showLines: true
+      showLines: true,
+      visible: true // サングラス表示状態
     };
 
     document.getElementById("upload").addEventListener("change", e => {
@@ -185,7 +187,7 @@
         ctx.drawImage(linesImg, 0, 0, 512, 512);
       }
 
-      if (sunglassImg.complete) {
+      if (params.visible && sunglassImg.complete) {
         drawRotatedImage(sunglassImg, params.sx, params.sy, params.sw, params.sh, params.rotation, params.opacity);
       }
 
@@ -197,41 +199,24 @@
       }
     }
 
-    // スライダー操作でパラメータ更新（サングラス）
     ["sunglass-w", "sunglass-h", "sunglass-x", "sunglass-y", "sunglass-opacity", "sunglass-rotation"].forEach(id => {
       document.getElementById(id).addEventListener("input", e => {
         const key = id.split("-")[1];
-        if (key === "w") params.sw = parseFloat(e.target.value);
-        else if (key === "h") params.sh = parseFloat(e.target.value);
-        else if (key === "x") params.sx = parseFloat(e.target.value);
-        else if (key === "y") params.sy = parseFloat(e.target.value);
-        else if (key === "opacity") params.opacity = parseFloat(e.target.value);
-        else if (key === "rotation") params.rotation = parseFloat(e.target.value);
+        params[key === "w" ? "sw" : key === "h" ? "sh" : key] = parseFloat(e.target.value);
         draw();
       });
     });
 
-    // スライダー操作でパラメータ更新（帽子）
-    ["x", "y", "w", "h", "opacity", "rotation"].forEach(attr => {
-      document.getElementById(`hat-${attr}`).addEventListener("input", e => {
-        accessories.hat[attr] = parseFloat(e.target.value);
-        draw();
-      });
-    });
-
-    // 帽子の表示切り替え
-    document.getElementById("acc-hat").addEventListener("change", e => {
-      accessories.hat.visible = e.target.checked;
+    document.getElementById("acc-sunglass").addEventListener("change", e => {
+      params.visible = e.target.checked;
       draw();
     });
 
-    // 集中線表示切り替え
     document.getElementById("show-lines").addEventListener("change", e => {
       params.showLines = e.target.checked;
       draw();
     });
 
-    // PNG保存
     document.getElementById("download").addEventListener("click", () => {
       const link = document.createElement("a");
       link.download = "icon.png";
@@ -239,7 +224,8 @@
       link.click();
     });
 
-    // マウス・タッチ座標取得（canvas相対）
+    // ドラッグ移動
+
     const getPos = e => {
       const rect = canvas.getBoundingClientRect();
       if (e.touches) {
@@ -255,7 +241,7 @@
       }
     };
 
-    // 回転した矩形内に点があるか判定
+    // 回転した矩形内に点があるか判定する関数
     function isPointInRotatedRect(px, py, rx, ry, rw, rh, rotation) {
       const cx = rx + rw / 2;
       const cy = ry + rh / 2;
@@ -269,7 +255,7 @@
 
     function startDrag(e) {
       const pos = getPos(e);
-      if (isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
+      if (params.visible && isPointInRotatedRect(pos.x, pos.y, params.sx, params.sy, params.sw, params.sh, params.rotation)) {
         dragTarget = "sunglass";
       } else if (userImg && pos.x >= 0 && pos.x <= canvas.width && pos.y >= 0 && pos.y <= canvas.height) {
         dragTarget = "image";
@@ -294,11 +280,15 @@
       } else if (dragTarget === "sunglass") {
         params.sx += dx;
         params.sy += dy;
+
+        // スライダーの値も更新
         document.getElementById("sunglass-x").value = params.sx;
         document.getElementById("sunglass-y").value = params.sy;
       } else if (dragTarget === "hat") {
         accessories.hat.x += dx;
         accessories.hat.y += dy;
+
+        // スライダーの値も更新
         document.getElementById("hat-x").value = accessories.hat.x;
         document.getElementById("hat-y").value = accessories.hat.y;
       }
